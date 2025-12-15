@@ -1,0 +1,60 @@
+pipeline {
+    agent any
+
+    environment {
+        DEV_REPO  = "manasadevi09/devops-build-dev"
+        PROD_REPO = "manasadevi09/devops-build-prod"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: "${env.BRANCH_NAME}",
+                    url: 'https://github.com/manasamantripragada-oss/devops-build.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'dev') {
+                        sh 'docker build -t $DEV_REPO:latest .'
+                    } else if (env.BRANCH_NAME == 'master') {
+                        sh 'docker build -t $PROD_REPO:latest .'
+                    }
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'manasadevi09',
+                        passwordVariable: 'Manasadm@2025$$'
+                    )]) {
+                        sh '''
+                          echo Manasadm@2025$$ | docker login -u manasadevi09 --password-stdin
+                        '''
+                        if (env.BRANCH_NAME == 'dev') {
+                            sh 'docker push $DEV_REPO:latest'
+                        } else if (env.BRANCH_NAME == 'master') {
+                            sh 'docker push $PROD_REPO:latest'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'master'
+            }
+            steps {
+                sh './deploy.sh latest'
+            }
+        }
+    }
+}
